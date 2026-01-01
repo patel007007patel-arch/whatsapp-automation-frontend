@@ -8,6 +8,9 @@ import { userAPI } from 'src/services/api';
 import { Icon } from '@iconify/react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'src/components/ui/tabs';
 
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.arhamerp.com/api';
+
 // Toast notifications - using alert for now, can be replaced with toast library
 const toast = {
   success: (msg: string) => alert(msg),
@@ -171,7 +174,7 @@ const ApiKeys = () => {
                 <div className="bg-muted p-4 rounded-lg">
                   <pre className="text-xs overflow-x-auto">
 {`curl -X POST \\
-  http://localhost:5000/api/messages/api/send \\
+  ${API_BASE_URL}/messages/api/send \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -191,7 +194,7 @@ const ApiKeys = () => {
 {`const axios = require('axios');
 
 const response = await axios.post(
-  'http://localhost:5000/api/messages/api/send',
+  '${API_BASE_URL}/messages/api/send',
   {
     to: '+1234567890',
     type: 'text',
@@ -214,7 +217,7 @@ const response = await axios.post(
 {`import requests
 
 response = requests.post(
-  'http://localhost:5000/api/messages/api/send',
+  '${API_BASE_URL}/messages/api/send',
   json={
     'to': '+1234567890',
     'type': 'text',
@@ -229,7 +232,7 @@ response = requests.post(
 
             <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p className="text-sm">
-                <strong>Base URL:</strong> http://localhost:5000/api
+                <strong>Base URL:</strong> {API_BASE_URL}
               </p>
               <p className="text-sm mt-2">
                 <strong>Endpoints:</strong>

@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import CardBox from "src/components/shared/CardBox";
 import AuthForgotPassword from "../authforms/AuthForgotPassword";
 import FullLogo from "src/layouts/full/shared/logo/FullLogo";

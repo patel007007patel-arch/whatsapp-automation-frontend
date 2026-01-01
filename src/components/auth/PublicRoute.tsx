@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { Navigate } from 'react-router';
 import { authAPI } from 'src/services/api';
 
 interface PublicRouteProps {
@@ -11,7 +11,6 @@ const PublicRoute = ({ children, redirectTo }: PublicRouteProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const location = useLocation();
 
   useEffect(() => {
     const checkAuth = async () => {

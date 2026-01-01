@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { Button } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
 import { Label } from 'src/components/ui/label';

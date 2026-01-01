@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.arhamerp.com/api';
 
 // Helper function to get auth token
 const getAuthToken = () => {
@@ -103,7 +103,7 @@ export const userAPI = {
   // Download API Documentation PDF
   downloadApiDocumentation: () => {
     const token = localStorage.getItem('token');
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://api.arhamerp.com/api';
     const url = `${apiUrl}/user/api-documentation/download`;
     
     return fetch(url, {

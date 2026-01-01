@@ -34,18 +34,6 @@ const AdminSettings = () => {
     }
   };
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      // Note: Admin profile update might need separate endpoint
-      // For now using user endpoint
-      await authAPI.getMe(); // This would need to be updateProfile if available
-      alert('Profile updated successfully');
-    } catch (error: any) {
-      alert(error.message || 'Failed to update profile');
-    }
-  };
-
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordData.newPassword !== passwordData.confirmPassword) {
