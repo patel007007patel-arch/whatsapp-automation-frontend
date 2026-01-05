@@ -32,6 +32,13 @@ const AdminSidebarContent: MenuItem[] = [
         isPro: false,
       },
       {
+        name: 'Plan Requests',
+        icon: 'solar:document-add-linear',
+        id: uniqueId(),
+        url: '/admin/plan-requests',
+        isPro: false,
+      },
+      {
         name: 'WhatsApp Sessions',
         icon: 'solar:qr-code-linear',
         id: uniqueId(),

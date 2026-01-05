@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router';
+import { Navigate, useLocation } from 'react-router';
 import { authAPI } from 'src/services/api';
 
 interface PublicRouteProps {
@@ -11,6 +11,7 @@ const PublicRoute = ({ children, redirectTo }: PublicRouteProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -42,8 +43,13 @@ const PublicRoute = ({ children, redirectTo }: PublicRouteProps) => {
     return <div>Loading...</div>;
   }
 
+  // Allow reset-password route to be accessible even when authenticated
+  // The reset token in the URL is what validates the reset, not auth status
+  const isResetPasswordRoute = location.pathname === '/auth/auth2/reset-password';
+
   // If user is authenticated, redirect to appropriate dashboard
-  if (isAuthenticated) {
+  // BUT skip redirect for reset-password route
+  if (isAuthenticated && !isResetPasswordRoute) {
     if (redirectTo) {
       return <Navigate to={redirectTo} replace />;
     }

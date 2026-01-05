@@ -51,6 +51,13 @@ const UserSidebarContent: MenuItem[] = [
         isPro: false,
       },
       {
+        name: 'CSV Upload',
+        icon: 'solar:document-add-linear',
+        id: uniqueId(),
+        url: '/user/csv',
+        isPro: false,
+      },
+      {
         name: 'Message Logs',
         icon: 'solar:document-linear',
         id: uniqueId(),

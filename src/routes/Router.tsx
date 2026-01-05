@@ -25,6 +25,7 @@ const Plans = Loadable(lazy(() => import('../views/user/Plans')));
 const WhatsAppConnect = Loadable(lazy(() => import('../views/user/WhatsAppConnect')) as any);
 const ApiKeys = Loadable(lazy(() => import('../views/user/ApiKeys')));
 const SendMessage = Loadable(lazy(() => import('../views/user/SendMessage')));
+const CSVUpload = Loadable(lazy(() => import('../views/user/CSVUpload')));
 const MessageLogs = Loadable(lazy(() => import('../views/user/MessageLogs')));
 const Billing = Loadable(lazy(() => import('../views/user/Billing')));
 const Settings = Loadable(lazy(() => import('../views/user/Settings')));
@@ -33,6 +34,7 @@ const Settings = Loadable(lazy(() => import('../views/user/Settings')));
 const AdminDashboard = Loadable(lazy(() => import('../views/admin/Dashboard')));
 const AdminUsers = Loadable(lazy(() => import('../views/admin/Users')));
 const AdminPlans = Loadable(lazy(() => import('../views/admin/Plans')));
+const AdminPlanRequests = Loadable(lazy(() => import('../views/admin/PlanRequests')));
 const AdminWhatsAppSessions = Loadable(lazy(() => import('../views/admin/WhatsAppSessions')));
 const AdminMessageLogs = Loadable(lazy(() => import('../views/admin/MessageLogs')));
 const AdminPayments = Loadable(lazy(() => import('../views/admin/Payments')));
@@ -95,6 +97,14 @@ const Router = [
         ) 
       },
       { 
+        path: '/user/csv', 
+        element: (
+          <ProtectedRoute requiredRole="user">
+            <CSVUpload />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
         path: '/user/messages/logs', 
         element: (
           <ProtectedRoute requiredRole="user">
@@ -141,6 +151,14 @@ const Router = [
         element: (
           <ProtectedRoute requiredRole="admin">
             <AdminPlans />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: '/admin/plan-requests', 
+        element: (
+          <ProtectedRoute requiredRole="admin">
+            <AdminPlanRequests />
           </ProtectedRoute>
         ) 
       },

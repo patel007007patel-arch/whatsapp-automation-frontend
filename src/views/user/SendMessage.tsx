@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from 'src/components/ui/card';
 import { Button } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
 import { Textarea } from 'src/components/ui/textarea';
 import { Label } from 'src/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'src/components/ui/tabs';
-import { messageAPI } from 'src/services/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from 'src/components/ui/select';
+import { Progress } from 'src/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from 'src/components/ui/dialog';
+import { messageAPI, userAPI } from 'src/services/api';
 
 interface MessageItem {
   type: 'text' | 'image' | 'document';
@@ -19,6 +22,17 @@ const SendMessage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [multipleFiles, setMultipleFiles] = useState<File[]>([]);
+  const [csvs, setCsvs] = useState<any[]>([]);
+  const [selectedCSV, setSelectedCSV] = useState<string>('');
+  const [bulkMessages, setBulkMessages] = useState<MessageItem[]>([]);
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [bulkProgress, setBulkProgress] = useState({
+    show: false,
+    current: 0,
+    total: 0,
+    percentage: 0,
+    status: '',
+  });
   const [formData, setFormData] = useState({
     to: '',
     type: 'text',
@@ -30,6 +44,19 @@ const SendMessage = () => {
       messages: [] as MessageItem[],
     },
   });
+
+  useEffect(() => {
+    fetchCSVs();
+  }, []);
+
+  const fetchCSVs = async () => {
+    try {
+      const response = await userAPI.getCSVList({ page: 1, limit: 100 });
+      setCsvs(response.csvs || []);
+    } catch (error) {
+      console.error('Failed to fetch CSVs:', error);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,8 +93,93 @@ const SendMessage = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Calculate total for bulk messages
+    let totalMessages = 0;
+    let isBulk = false;
+    
+    if (formData.type === 'bulk' && selectedCSV) {
+      const selectedCsvData = csvs.find(c => c._id === selectedCSV);
+      const recipientCount = selectedCsvData?.totalNumbers || 0;
+      const messageCount = bulkMessages.length > 0 ? bulkMessages.length : 1;
+      totalMessages = recipientCount * messageCount;
+      isBulk = true;
+    } else if (formData.type === 'bulk' && formData.content.recipients.length > 0) {
+      const recipientCount = formData.content.recipients.length;
+      const messageCount = bulkMessages.length > 0 ? bulkMessages.length : 1;
+      totalMessages = recipientCount * messageCount;
+      isBulk = true;
+    }
+
+    // Show progress for bulk messages
+    let progressInterval: NodeJS.Timeout | null = null;
+    if (isBulk && totalMessages > 0) {
+      setBulkProgress({
+        show: true,
+        current: 0,
+        total: totalMessages,
+        percentage: 0,
+        status: 'Starting...',
+      });
+      
+      // Simulate progress updates (estimate: ~2 seconds per message)
+      let simulatedProgress = 0;
+      const estimatedTimePerMessage = 2000; // 2 seconds
+      const updateInterval = 500; // Update every 500ms
+      const incrementPerUpdate = (updateInterval / (totalMessages * estimatedTimePerMessage)) * 100;
+      
+      progressInterval = setInterval(() => {
+        simulatedProgress = Math.min(simulatedProgress + incrementPerUpdate, 95); // Cap at 95% until done
+        setBulkProgress(prev => ({
+          ...prev,
+          percentage: simulatedProgress,
+          status: `Sending... ${Math.round(simulatedProgress)}%`,
+        }));
+      }, updateInterval);
+    }
+
     try {
-      if (formData.type === 'multiple') {
+      if (formData.type === 'bulk' && selectedCSV) {
+        // Handle bulk message with CSV
+        if (bulkMessages.length > 0) {
+          // Multiple messages bulk
+          const result = await messageAPI.sendBulkMultipleFromCSV({
+            csvId: selectedCSV,
+            messages: bulkMessages,
+            files: bulkFiles,
+          });
+          if (isBulk && progressInterval) {
+            clearInterval(progressInterval);
+            setBulkProgress(prev => ({
+              ...prev,
+              current: prev.total,
+              percentage: 100,
+              status: `Completed! ${result.successCount || 0} sent, ${result.failCount || 0} failed`,
+            }));
+            setTimeout(() => {
+              setBulkProgress({ show: false, current: 0, total: 0, percentage: 0, status: '' });
+            }, 3000);
+          }
+        } else {
+          // Single text message bulk
+          const result = await messageAPI.sendBulkFromCSV({
+            csvId: selectedCSV,
+            type: 'text',
+            content: { text: formData.content.text },
+          });
+          if (isBulk && progressInterval) {
+            clearInterval(progressInterval);
+            setBulkProgress(prev => ({
+              ...prev,
+              current: prev.total,
+              percentage: 100,
+              status: `Completed! ${result.successCount || 0} sent, ${result.failCount || 0} failed`,
+            }));
+            setTimeout(() => {
+              setBulkProgress({ show: false, current: 0, total: 0, percentage: 0, status: '' });
+            }, 3000);
+          }
+        }
+      } else if (formData.type === 'multiple') {
         // Handle multiple messages
         await messageAPI.send({
           to: formData.to,
@@ -75,6 +187,47 @@ const SendMessage = () => {
           content: { messages: formData.content.messages },
           files: multipleFiles,
         } as any);
+      } else if (formData.type === 'bulk' && formData.content.recipients.length > 0) {
+        // Handle bulk message with manual recipients
+        if (bulkMessages.length > 0) {
+          // Multiple messages bulk
+          const result = await messageAPI.sendBulkMultiple({
+            recipients: formData.content.recipients,
+            messages: bulkMessages,
+            files: bulkFiles,
+          });
+          if (isBulk && progressInterval) {
+            clearInterval(progressInterval);
+            setBulkProgress(prev => ({
+              ...prev,
+              current: prev.total,
+              percentage: 100,
+              status: `Completed! ${result.successCount || 0} sent, ${result.failCount || 0} failed`,
+            }));
+            setTimeout(() => {
+              setBulkProgress({ show: false, current: 0, total: 0, percentage: 0, status: '' });
+            }, 3000);
+          }
+        } else {
+          // Single text message bulk
+          const result = await messageAPI.sendBulk({
+            recipients: formData.content.recipients,
+            type: 'text',
+            content: { text: formData.content.text },
+          });
+          if (isBulk && progressInterval) {
+            clearInterval(progressInterval);
+            setBulkProgress(prev => ({
+              ...prev,
+              current: prev.total,
+              percentage: 100,
+              status: `Completed! ${result.successCount || 0} sent, ${result.failCount || 0} failed`,
+            }));
+            setTimeout(() => {
+              setBulkProgress({ show: false, current: 0, total: 0, percentage: 0, status: '' });
+            }, 3000);
+          }
+        }
       } else {
         // Handle single message (existing logic)
         const content = selectedFile
@@ -97,7 +250,9 @@ const SendMessage = () => {
         }
       }
       
-      alert('Message sent successfully!');
+      if (!isBulk) {
+        alert('Message sent successfully!');
+      }
       
       // Reset form
       setFormData({
@@ -108,7 +263,14 @@ const SendMessage = () => {
       setSelectedFile(null);
       setFilePreview(null);
       setMultipleFiles([]);
+      setSelectedCSV('');
+      setBulkMessages([]);
+      setBulkFiles([]);
     } catch (error: any) {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      setBulkProgress({ show: false, current: 0, total: 0, percentage: 0, status: '' });
       alert(error.message || 'Failed to send message');
     } finally {
       setLoading(false);
@@ -158,6 +320,37 @@ const SendMessage = () => {
     
     if (file) {
       updateMessage(index, 'fileName', file.name);
+    }
+  };
+
+  const addBulkMessage = () => {
+    setBulkMessages([...bulkMessages, { type: 'text', text: '', mediaUrl: '', fileName: '' }]);
+  };
+
+  const removeBulkMessage = (index: number) => {
+    const newMessages = bulkMessages.filter((_, i) => i !== index);
+    const newFiles = bulkFiles.filter((_, i) => i !== index);
+    setBulkMessages(newMessages);
+    setBulkFiles(newFiles);
+  };
+
+  const updateBulkMessage = (index: number, field: keyof MessageItem, value: string) => {
+    const newMessages = [...bulkMessages];
+    newMessages[index] = { ...newMessages[index], [field]: value };
+    setBulkMessages(newMessages);
+  };
+
+  const handleBulkFileChange = (index: number, file: File | null) => {
+    const newFiles = [...bulkFiles];
+    if (file) {
+      newFiles[index] = file;
+    } else {
+      newFiles.splice(index, 1);
+    }
+    setBulkFiles(newFiles);
+    
+    if (file) {
+      updateBulkMessage(index, 'fileName', file.name);
     }
   };
 
@@ -513,35 +706,180 @@ const SendMessage = () => {
 
               <TabsContent value="bulk" className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Recipients (one per line)</Label>
-                  <Textarea
-                    value={formData.content.recipients.join('\n')}
-                    onChange={(e) =>
+                  <Label>Select CSV or Enter Recipients Manually</Label>
+                  <Select value={selectedCSV || 'manual'} onValueChange={(value) => {
+                    if (value === 'manual') {
+                      setSelectedCSV('');
+                    } else {
+                      setSelectedCSV(value);
+                      // Clear manual recipients when CSV is selected
                       setFormData({
                         ...formData,
-                        content: {
-                          ...formData.content,
-                          recipients: e.target.value.split('\n').filter((r) => r.trim()),
-                        },
-                      })
+                        content: { ...formData.content, recipients: [] },
+                      });
                     }
-                    placeholder="+1234567890&#10;+0987654321"
-                    required
-                  />
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a CSV file (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">None (Enter manually)</SelectItem>
+                      {csvs.map((csv) => (
+                        <SelectItem key={csv._id} value={csv._id}>
+                          {csv.name} ({csv.totalNumbers} numbers)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Message</Label>
-                  <Textarea
-                    value={formData.content.text}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        content: { ...formData.content, text: e.target.value },
-                      })
-                    }
-                    placeholder="Enter your message"
-                    required
-                  />
+                
+                {!selectedCSV && (
+                  <div className="space-y-2">
+                    <Label>Recipients (one per line)</Label>
+                    <Textarea
+                      value={formData.content.recipients.join('\n')}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          content: {
+                            ...formData.content,
+                            recipients: e.target.value.split('\n').filter((r) => r.trim()),
+                          },
+                        })
+                      }
+                      placeholder="+1234567890&#10;+0987654321"
+                      required={!selectedCSV && bulkMessages.length === 0}
+                    />
+                  </div>
+                )}
+                
+                {selectedCSV && (
+                  <div className="p-3 bg-muted rounded-md">
+                    <p className="text-sm text-muted-foreground">
+                      Sending to all numbers in selected CSV
+                    </p>
+                  </div>
+                )}
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Label>Messages (Send multiple messages in sequence to all recipients)</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addBulkMessage}
+                    >
+                      + Add Message
+                    </Button>
+                  </div>
+                  
+                  {bulkMessages.length === 0 ? (
+                    <div className="space-y-2">
+                      <Label>Message</Label>
+                      <Textarea
+                        value={formData.content.text}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            content: { ...formData.content, text: e.target.value },
+                          })
+                        }
+                        placeholder="Enter your message"
+                        required={bulkMessages.length === 0}
+                      />
+                    </div>
+                  ) : (
+                    bulkMessages.map((msg, index) => (
+                      <Card key={index} className="p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-sm font-medium">Message {index + 1}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeBulkMessage(index)}
+                            className="h-6 px-2 text-red-500"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label>Type</Label>
+                            <select
+                              value={msg.type}
+                              onChange={(e) => {
+                                const newMessages = [...bulkMessages];
+                                newMessages[index] = { ...newMessages[index], type: e.target.value as 'text' | 'image' | 'document' };
+                                setBulkMessages(newMessages);
+                              }}
+                              className="w-full p-2 border rounded"
+                            >
+                              <option value="text">Text</option>
+                              <option value="image">Image</option>
+                              <option value="document">Document</option>
+                            </select>
+                          </div>
+                          
+                          {msg.type === 'text' && (
+                            <div className="space-y-2">
+                              <Label>Text</Label>
+                              <Textarea
+                                value={msg.text}
+                                onChange={(e) => updateBulkMessage(index, 'text', e.target.value)}
+                                placeholder="Enter your message"
+                                required
+                              />
+                            </div>
+                          )}
+                          
+                          {(msg.type === 'image' || msg.type === 'document') && (
+                            <>
+                              <div className="space-y-2">
+                                <Label>Upload File or Enter URL</Label>
+                                <div className="space-y-2">
+                                  <Input
+                                    type="file"
+                                    accept={msg.type === 'image' ? 'image/*' : '.pdf,.doc,.docx,.xls,.xlsx,.txt,.ppt,.pptx'}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0] || null;
+                                      handleBulkFileChange(index, file);
+                                    }}
+                                    className="cursor-pointer"
+                                  />
+                                  <div className="relative">
+                                    <div className="absolute inset-0 flex items-center">
+                                      <span className="w-full border-t" />
+                                    </div>
+                                    <div className="relative flex justify-center text-xs uppercase">
+                                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                                    </div>
+                                  </div>
+                                  <Input
+                                    value={msg.mediaUrl}
+                                    onChange={(e) => updateBulkMessage(index, 'mediaUrl', e.target.value)}
+                                    placeholder={msg.type === 'image' ? 'https://example.com/image.jpg' : 'https://example.com/document.pdf'}
+                                    disabled={!!bulkFiles[index]}
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>Caption (Optional)</Label>
+                                <Textarea
+                                  value={msg.text}
+                                  onChange={(e) => updateBulkMessage(index, 'text', e.target.value)}
+                                  placeholder="Enter caption"
+                                />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </Card>
+                    ))
+                  )}
                 </div>
               </TabsContent>
 
@@ -552,6 +890,37 @@ const SendMessage = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Bulk Progress Dialog */}
+      <Dialog open={bulkProgress.show} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sending Bulk Messages</DialogTitle>
+            <DialogDescription>
+              Please wait while messages are being sent...
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progress</span>
+                <span className="font-medium">
+                  {bulkProgress.current} / {bulkProgress.total} messages
+                </span>
+              </div>
+              <Progress value={bulkProgress.percentage} className="h-2" />
+              <div className="text-center text-sm text-muted-foreground">
+                {Math.round(bulkProgress.percentage)}%
+              </div>
+            </div>
+            {bulkProgress.status && (
+              <div className="text-center text-sm font-medium">
+                {bulkProgress.status}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

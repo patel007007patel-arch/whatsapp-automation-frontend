@@ -147,7 +147,7 @@ const ApiKeys = () => {
             ) : (
               <div className="space-y-4">
                 <p className="text-muted-foreground">
-                  You need to connect your WhatsApp account first before generating an API key.
+                  Generate an API key to authenticate your requests. Note: WhatsApp must be connected to use the API.
                 </p>
                 <Button onClick={handleGenerate}>Generate API Key</Button>
               </div>

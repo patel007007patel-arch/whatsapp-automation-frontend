@@ -10,12 +10,14 @@ import { Badge } from 'src/components/ui/badge';
 const Plans = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const [planRequest, setPlanRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchPlans();
     fetchCurrentPlan();
+    fetchPlanRequest();
   }, []);
 
   const fetchPlans = async () => {
@@ -38,13 +40,22 @@ const Plans = () => {
     }
   };
 
+  const fetchPlanRequest = async () => {
+    try {
+      const data = await userAPI.getPlanRequest();
+      setPlanRequest(data.request);
+    } catch (error) {
+      console.error('Failed to fetch plan request:', error);
+    }
+  };
+
   const handleSubscribe = async (planId: string) => {
     try {
-      await planAPI.subscribe(planId);
-      alert('Plan subscribed successfully! Redirecting to WhatsApp Connect...');
-      navigate('/user/whatsapp/connect');
+      const response = await planAPI.subscribe(planId);
+      alert(response.message || 'Plan request submitted successfully! Waiting for admin approval.');
+      await fetchPlanRequest(); // Refresh request status
     } catch (error: any) {
-      alert(error.message || 'Failed to subscribe. Please try again.');
+      alert(error.message || 'Failed to submit plan request. Please try again.');
     }
   };
 
@@ -74,6 +85,28 @@ const Plans = () => {
           <strong>Important:</strong> 1 Credit = 1 Message. Credits are deducted for each message sent.
         </AlertDescription>
       </Alert>
+
+      {planRequest && planRequest.status === 'pending' && (
+        <Alert className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+          <Icon icon="solar:clock-circle-linear" className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+            <strong>Plan Request Pending:</strong> You have a pending request for the{' '}
+            <strong>{planRequest.planId?.name}</strong> plan. Please wait for admin approval.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {planRequest && planRequest.status === 'rejected' && (
+        <Alert className="mb-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+          <Icon icon="solar:close-circle-linear" className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800 dark:text-red-200">
+            <strong>Previous Request Rejected:</strong> Your request for{' '}
+            <strong>{planRequest.planId?.name}</strong> was rejected.
+            {planRequest.rejectionReason && ` Reason: ${planRequest.rejectionReason}`}
+            {' '}You can request a plan again.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {currentPlan?.plan && (
         <Card className="mb-6 border-primary">
@@ -198,6 +231,17 @@ const Plans = () => {
                   <Button className="w-full" variant="outline" disabled>
                     Current Plan
                   </Button>
+                ) : planRequest?.status === 'pending' ? (
+                  <Button className="w-full" variant="outline" disabled>
+                    {planRequest.planId?._id === plan._id ? (
+                      <span className="flex items-center justify-center">
+                        <Icon icon="solar:clock-circle-linear" className="h-4 w-4 mr-2" />
+                        Request Pending
+                      </span>
+                    ) : (
+                      'Request Pending for Another Plan'
+                    )}
+                  </Button>
                 ) : (
                   <Button
                     className="w-full"
@@ -205,7 +249,7 @@ const Plans = () => {
                     variant={plan.isPopular ? 'default' : 'outline'}
                     size="lg"
                   >
-                    {plan.price === 0 ? 'Get Started Free' : currentPlan?.plan ? 'Upgrade Plan' : 'Subscribe Now'}
+                    {plan.price === 0 ? 'Get Started Free' : currentPlan?.plan ? 'Upgrade Plan' : 'Request Plan'}
                   </Button>
                 )}
               </CardFooter>

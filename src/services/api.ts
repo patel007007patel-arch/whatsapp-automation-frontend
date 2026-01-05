@@ -79,6 +79,10 @@ export const userAPI = {
       return apiCall('/messages/send', { method: 'POST', body: JSON.stringify(dataWithoutFile) });
     }
   },
+  sendBulk: (data: { recipients: string[]; type: string; content: any }) =>
+    apiCall('/messages/send-bulk', { method: 'POST', body: JSON.stringify(data) }),
+  sendBulkFromCSV: (data: { csvId: string; type: string; content: any }) =>
+    apiCall('/messages/send-bulk-csv', { method: 'POST', body: JSON.stringify(data) }),
   getMessageLogs: (params?: { status?: string; type?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params) {
@@ -99,6 +103,23 @@ export const userAPI = {
     }
     return apiCall(`/user/billing?${query.toString()}`);
   },
+  
+  // Plan Request
+  getPlanRequest: () => apiCall('/user/plan-request'),
+  
+  // CSV
+  uploadCSV: (formData: FormData) => apiCallWithFile('/user/csv/upload', formData),
+  getCSVList: (params?: { page?: number; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) query.append(key, String(value));
+      });
+    }
+    return apiCall(`/user/csv?${query.toString()}`);
+  },
+  getCSV: (id: string) => apiCall(`/user/csv/${id}`),
+  deleteCSV: (id: string) => apiCall(`/user/csv/${id}`, { method: 'DELETE' }),
   
   // Download API Documentation PDF
   downloadApiDocumentation: () => {
@@ -181,6 +202,36 @@ export const messageAPI = {
       // Send without file (text or URL)
       const { file, files, ...dataWithoutFile } = data;
       return apiCall('/messages/send', { method: 'POST', body: JSON.stringify(dataWithoutFile) });
+    }
+  },
+  sendBulk: (data: { recipients: string[]; type: string; content: any }) =>
+    apiCall('/messages/send-bulk', { method: 'POST', body: JSON.stringify(data) }),
+  sendBulkFromCSV: (data: { csvId: string; type: string; content: any }) =>
+    apiCall('/messages/send-bulk-csv', { method: 'POST', body: JSON.stringify(data) }),
+  sendBulkMultiple: (data: { recipients: string[]; messages: any[]; files?: File[] }) => {
+    if (data.files && data.files.length > 0) {
+      const formData = new FormData();
+      formData.append('recipients', JSON.stringify(data.recipients));
+      formData.append('messages', JSON.stringify(data.messages));
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+      return apiCallWithFile('/messages/send-bulk-multiple', formData);
+    } else {
+      return apiCall('/messages/send-bulk-multiple', { method: 'POST', body: JSON.stringify(data) });
+    }
+  },
+  sendBulkMultipleFromCSV: (data: { csvId: string; messages: any[]; files?: File[] }) => {
+    if (data.files && data.files.length > 0) {
+      const formData = new FormData();
+      formData.append('csvId', data.csvId);
+      formData.append('messages', JSON.stringify(data.messages));
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+      return apiCallWithFile('/messages/send-bulk-multiple-csv', formData);
+    } else {
+      return apiCall('/messages/send-bulk-multiple-csv', { method: 'POST', body: JSON.stringify(data) });
     }
   },
   getLogs: (params?: { status?: string; type?: string; page?: number; limit?: number }) => {
@@ -293,5 +344,27 @@ export const adminAPI = {
   updatePlan: (id: string, data: any) =>
     apiCall(`/plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePlan: (id: string) => apiCall(`/plans/${id}`, { method: 'DELETE' }),
+  
+  // Plan Requests
+  getPlanRequests: (params?: { status?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) query.append(key, String(value));
+      });
+    }
+    return apiCall(`/admin/plan-requests?${query.toString()}`);
+  },
+  getPlanRequest: (id: string) => apiCall(`/admin/plan-requests/${id}`),
+  approvePlanRequest: (id: string, notes?: string) =>
+    apiCall(`/admin/plan-requests/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
+  rejectPlanRequest: (id: string, rejectionReason?: string, notes?: string) =>
+    apiCall(`/admin/plan-requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejectionReason, notes }),
+    }),
 };
 
